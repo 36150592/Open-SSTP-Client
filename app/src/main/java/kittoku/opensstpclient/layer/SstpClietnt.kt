@@ -179,7 +179,17 @@ internal class SstpClient(parent: ControlClient) : Client(parent) {
     }
 
     private fun readAsData() {
-        incomingBuffer.pppLimit = incomingBuffer.getShort().toInt() + incomingBuffer.position() - 4
+        val pppLength = incomingBuffer.getShort() - 4
+        if (pppLength < 4) {
+            val bytes = ByteArray(pppLength).also {
+                incomingBuffer.get(it)
+            }
+            parent.inform("Fragmented payload: ${bytes.toHexString()}", null)
+            incomingBuffer.forget()
+            return
+        }
+
+        incomingBuffer.pppLimit = incomingBuffer.position() + pppLength
 
         if (incomingBuffer.getShort() != PPP_HEADER) {
             parent.inform("Received a non-PPP payload", null)
