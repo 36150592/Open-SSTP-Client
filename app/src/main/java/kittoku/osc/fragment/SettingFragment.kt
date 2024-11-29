@@ -2,115 +2,93 @@ package kittoku.osc.fragment
 
 import android.app.Activity
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
-import androidx.preference.DropDownPreference
-import androidx.preference.MultiSelectListPreference
+import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import kittoku.osc.R
-import javax.net.ssl.SSLContext
+import kittoku.osc.activity.BLANK_ACTIVITY_TYPE_APPS
+import kittoku.osc.activity.BlankActivity
+import kittoku.osc.activity.EXTRA_KEY_TYPE
+import kittoku.osc.preference.OscPrefKey
+import kittoku.osc.preference.accessor.setURIPrefValue
+import kittoku.osc.preference.custom.DirectoryPreference
 
-
-private const val CERT_DIR_REQUEST_CODE: Int = 0
-private const val LOG_DIR_REQUEST_CODE: Int = 1
-
-private val settingPreferences = arrayOf<PreferenceWrapper<*>>(
-    IntPreference.SSL_PORT,
-    StrPreference.SSL_VERSION,
-    BoolPreference.SSL_DO_VERIFY,
-    BoolPreference.SSL_DO_ADD_CERT,
-    DirPreference.SSL_CERT_DIR,
-    BoolPreference.SSL_DO_SELECT_SUITES,
-    SetPreference.SSL_SUITES,
-    IntPreference.PPP_MRU,
-    IntPreference.PPP_MTU,
-    BoolPreference.PPP_PAP_ENABLED,
-    BoolPreference.PPP_MSCHAPv2_ENABLED,
-    BoolPreference.PPP_IPv4_ENABLED,
-    BoolPreference.PPP_IPv6_ENABLED,
-    IntPreference.IP_PREFIX,
-    BoolPreference.IP_ONLY_LAN,
-    BoolPreference.IP_ONLY_ULA,
-    BoolPreference.RECONNECTION_ENABLED,
-    IntPreference.RECONNECTION_COUNT,
-    IntPreference.RECONNECTION_INTERVAL,
-    IntPreference.BUFFER_INCOMING,
-    IntPreference.BUFFER_OUTGOING,
-    BoolPreference.LOG_DO_SAVE_LOG,
-    DirPreference.LOG_DIR,
-)
 
 internal class SettingFragment : PreferenceFragmentCompat() {
-    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-        setPreferencesFromResource(R.xml.settings, rootKey)
+    private lateinit var prefs: SharedPreferences
 
-        settingPreferences.forEach {
-            it.initPreference(this, preferenceManager.sharedPreferences)
-        }
+    private lateinit var certDirPref: DirectoryPreference
+    private lateinit var logDirPref: DirectoryPreference
 
-        initSSLPreferences()
-        setCertDirListener()
-        setLogDirListener()
+    private val certDirLauncher = registerForActivityResult(StartActivityForResult()) { result ->
+        val uri = if (result.resultCode == Activity.RESULT_OK) result.data?.data?.also {
+            requireContext().contentResolver.takePersistableUriPermission(
+                it, Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } else null
+
+        setURIPrefValue(uri, OscPrefKey.SSL_CERT_DIR, prefs)
+
+        certDirPref.updateView()
     }
 
-    private fun initSSLPreferences() {
-        val params = SSLContext.getDefault().supportedSSLParameters
+    private val logDirLauncher = registerForActivityResult(StartActivityForResult()) { result ->
+        val uri = if (result.resultCode == Activity.RESULT_OK) result.data?.data?.also {
+            requireContext().contentResolver.takePersistableUriPermission(
+                it, Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        } else null
 
-        findPreference<DropDownPreference>(StrPreference.SSL_VERSION.name)!!.also {
-            val versions = arrayOf("DEFAULT") + params.protocols
+        setURIPrefValue(uri, OscPrefKey.LOG_DIR, prefs)
 
-            it.entries = versions
-            it.entryValues = versions
-        }
+        logDirPref.updateView()
+    }
 
-        findPreference<MultiSelectListPreference>(SetPreference.SSL_SUITES.name)!!.also {
-            it.entries = params.cipherSuites
-            it.entryValues = params.cipherSuites
-        }
+    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        setPreferencesFromResource(R.xml.settings, rootKey)
+        prefs = preferenceManager.sharedPreferences!!
+
+        certDirPref = findPreference(OscPrefKey.SSL_CERT_DIR.name)!!
+        logDirPref = findPreference(OscPrefKey.LOG_DIR.name)!!
+
+        setCertDirListener()
+        setLogDirListener()
+        setAllowedAppsListener()
     }
 
     private fun setCertDirListener() {
-        findPreference<Preference>(DirPreference.SSL_CERT_DIR.name)!!.also {
-            it.onPreferenceClickListener = Preference.OnPreferenceClickListener {
-                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+        certDirPref.onPreferenceClickListener = Preference.OnPreferenceClickListener {
+            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).also { intent ->
                 intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                startActivityForResult(intent, CERT_DIR_REQUEST_CODE)
-                true
+                certDirLauncher.launch(intent)
             }
+
+            true
         }
     }
 
     private fun setLogDirListener() {
-        findPreference<Preference>(DirPreference.LOG_DIR.name)!!.also {
-            it.onPreferenceClickListener = Preference.OnPreferenceClickListener {
-                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+        logDirPref.onPreferenceClickListener = Preference.OnPreferenceClickListener {
+            Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).also { intent ->
                 intent.flags = Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                startActivityForResult(intent, LOG_DIR_REQUEST_CODE)
-                true
+                logDirLauncher.launch(intent)
             }
+
+            true
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, resultData: Intent?) {
-        when (requestCode) {
-            CERT_DIR_REQUEST_CODE -> {
-                val uri = if (resultCode == Activity.RESULT_OK) resultData?.data?.also {
-                    context?.contentResolver?.takePersistableUriPermission(
-                        it, Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                } else null
+    private fun setAllowedAppsListener() {
+        findPreference<Preference>(OscPrefKey.ROUTE_ALLOWED_APPS.name)!!.also {
+            it.onPreferenceClickListener = Preference.OnPreferenceClickListener {
+                startActivity(Intent(requireContext(), BlankActivity::class.java).putExtra(
+                    EXTRA_KEY_TYPE,
+                    BLANK_ACTIVITY_TYPE_APPS
+                ))
 
-                DirPreference.SSL_CERT_DIR.setValue(this, uri?.toString() ?: "")
-            }
-
-            LOG_DIR_REQUEST_CODE -> {
-                val uri = if (resultCode == Activity.RESULT_OK) resultData?.data?.also {
-                    context?.contentResolver?.takePersistableUriPermission(
-                        it, Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                    )
-                } else null
-
-                DirPreference.LOG_DIR.setValue(this, uri?.toString() ?: "")
+                true
             }
         }
     }

@@ -4,26 +4,43 @@ This is an open-sourced Secure Socket Tunneling Protocol (MS-SSTP) client for An
 So no test with other servers is done. Its behavior may be still unstable.
 
 ## Installation
-You can download and install the latest version via [Google Play](https://play.google.com/store/apps/details?id=kittoku.osc)
+You can download and install the latest version via [Google Play](https://play.google.com/store/apps/details?id=kittoku.osc).
+Some of previous versions are released as apk file on [the releases page](https://github.com/kittoku/Open-SSTP-Client/releases).
 
 ## Usage
 Enter `Host`, `Username` and `Password` preferences and turn the switch on. If a key icon gets to show on 
 the right side of the status bar, establishing a VPN connection has been succeeded. To disconnect 
-the connection, turn the switch off in the home tab or tap the notification.  
+the connection, turn the switch off in the home tab or tap the notification. You can save/load the 
+profile from the upper-right option menu.  
 <br>
-<img src="images/example_home.png" width=25%>
-<img src="images/example_setting.png" width=25%>
+<img src="images/example_home.png" width=20%>
+<img src="images/example_setting_1.png" width=20%>
+<img src="images/example_setting_2.png" width=20%>
+<img src="images/example_tile.png" width=20%>
+
 
 ## Setting tab
 Some settings to be noted are written below:
 
-### Add Trusted Certificates (SSL Layer)
+### Specify Trusted Certificates (SSL Layer)
 If you choose a certain directory, the client uses ONLY certificates in the directory, but the default 
-certificate store. I made this option for debugging. 
+certificate store. I made this option for debugging.  
+  
+This preference is displayed as `Add Trusted Certificates` in v1.7.0 or older.
 
 ### PPP Network Protocol
 You can choose what network protocol PPP layer tries enabling. Remember, IPv6 option just gives the device 
 a link local address, never guarantees that you can communicate perfectly with IPv6 protocol.
+
+### Custom DNS Server Address
+You can specify DNS server to use in this option. Packets associated with this address is routed to 
+the VPN tunnel. If you specify a IPv4(v6) address and disable IPv4(v6) network,
+domain names possibly cannot be resolved.
+
+### Enable App-Based Rule
+With `Select Allowed Apps` option, you can specify the apps which use the VPN tunnel.
+Even allowed apps cannot use the VPN tunnel if their routes are not on the routing table.
+So when you use this option, enabling `Add Default Route` option is recommended.
 
 
 ## Notice
